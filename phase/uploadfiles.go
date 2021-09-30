@@ -1,8 +1,9 @@
 package phase
 
 import (
-	"path/filepath"
+	"path"
 
+	"github.com/alessio/shellescape"
 	"github.com/k0sproject/k0sctl/config"
 	"github.com/k0sproject/k0sctl/config/cluster"
 	"github.com/k0sproject/rig/exec"
@@ -43,30 +44,56 @@ func (p *UploadFiles) Run() error {
 }
 
 func (p *UploadFiles) uploadFiles(h *cluster.Host) error {
+	var resolved []cluster.UploadFile
+
 	for _, f := range h.Files {
-		log.Infof("%s: starting to upload %s", h, f.Name)
+		log.Infof("%s: starting upload of %s", h, f)
 		files, err := f.Resolve()
 		if err != nil {
 			return err
 		}
+		resolved = append(resolved, files...)
+	}
 
-		if err := h.Execf("install -d %s -m %s", f.DestinationDir, f.PermMode, exec.Sudo(h)); err != nil {
+	for _, f := range resolved {
+		tmpfile, err := h.Configurer.TempFile(h)
+		if err != nil {
 			return err
 		}
 
-		for _, file := range files {
-			log.Debugf("%s: uploading %s to %s", h, file, f.DestinationDir)
-			destination := filepath.Join(f.DestinationDir, filepath.Base(file))
-
-			if err := h.Upload(file, destination, exec.Sudo(h)); err != nil {
-				return err
-			}
-
-			if err := h.Configurer.Chmod(h, destination, f.PermMode); err != nil {
-				return err
-			}
+		destdir, destfile, err := f.Destination()
+		if err != nil {
+			return err
 		}
-		log.Infof("%s: %s upload done", h, f.Name)
+
+		if f.IsURL() {
+			err = p.uploadURL(h, f, tmpfile)
+		} else {
+			err = p.uploadLocal(h, f, tmpfile)
+		}
+
+		if err != nil {
+			return err
+		}
+
+		dest := path.Join(destdir, destfile)
+		log.Infof("%s: installing %s to %s", h, f, dest)
+		err = h.Execf("install -m %s -D %s %s", f.PermMode, shellescape.Quote(tmpfile), shellescape.Quote(dest), exec.Sudo(h))
+		if err != nil {
+			return err
+		}
 	}
+
+	return nil
+}
+
+func (p *UploadFiles) uploadLocal(h *cluster.Host, f cluster.UploadFile, dest string) error {
+	log.Infof("%s: uploading %s", h, f)
+	return h.Upload(f.Source, dest)
+}
+func (p *UploadFiles) uploadURL(h *cluster.Host, f cluster.UploadFile, dest string) error {
+	log.Infof("%s: downloading %s", h, f)
+	return h.Configurer.DownloadURL(h, f.Source, dest)
+
 	return nil
 }

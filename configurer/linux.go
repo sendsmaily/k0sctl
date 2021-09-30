@@ -74,6 +74,11 @@ func (l Linux) TempDir(h os.Host) (string, error) {
 	return h.ExecOutput("mktemp -d")
 }
 
+// DownloadURL performs a download from a URL on the host
+func (l Linux) DownloadURL(h os.Host, url, destination string) error {
+	return h.Execf(`curl -sSLf -o "%s" "%s"`, destination, url)
+}
+
 // DownloadK0s performs k0s binary download from github on the host
 func (l Linux) DownloadK0s(h os.Host, version, arch string) error {
 	tmp, err := l.TempFile(h)
@@ -83,11 +88,10 @@ func (l Linux) DownloadK0s(h os.Host, version, arch string) error {
 	defer func() { _ = h.Execf(`rm -f "%s"`, tmp) }()
 
 	url := fmt.Sprintf("https://github.com/k0sproject/k0s/releases/download/v%s/k0s-v%s-%s", version, version, arch)
-	if err := h.Execf(`curl -sSLf -o "%s" "%s"`, tmp, url); err != nil {
+	if err := l.DownloadURL(h, url, tmp); err != nil {
 		return err
 	}
-
-	return h.Execf(`install -m 0750 -o root -g adm "%s" "%s"`, tmp, l.K0sBinaryPath(), exec.Sudo(h))
+	return h.Execf(`install -m %s -d "%s" "%s"`, "0700", tmp, l.K0sBinaryPath(), exec.Sudo(h))
 }
 
 // ReplaceK0sTokenPath replaces the config path in the service stub

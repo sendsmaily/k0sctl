@@ -58,6 +58,7 @@ type configurer interface {
 	FileExist(os.Host, string) bool
 	Chmod(os.Host, string, string) error
 	DownloadK0s(os.Host, string, string) error
+	DownloadURL(os.Host, string, string) error
 	InstallPackage(os.Host, ...string) error
 	FileContains(os.Host, string, string) bool
 	MoveFile(os.Host, string, string) error
@@ -72,6 +73,7 @@ type configurer interface {
 	PrivateInterface(os.Host) (string, error)
 	PrivateAddress(os.Host, string, string) (string, error)
 	TempDir(os.Host) (string, error)
+	TempFile(os.Host) (string, error)
 	UpdateServiceEnvironment(os.Host, string, map[string]string) error
 	CleanupServiceEnvironment(os.Host, string) error
 }
