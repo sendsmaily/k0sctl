@@ -94,6 +94,4 @@ func (p *UploadFiles) uploadLocal(h *cluster.Host, f cluster.UploadFile, dest st
 func (p *UploadFiles) uploadURL(h *cluster.Host, f cluster.UploadFile, dest string) error {
 	log.Infof("%s: downloading %s", h, f)
 	return h.Configurer.DownloadURL(h, f.Source, dest)
-
-	return nil
 }
